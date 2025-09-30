@@ -3,12 +3,12 @@ from utils.alsoasked_client import AlsoAskedClient
 from utils.gemini_client import get_gemini_variations
 from utils.grounding_client import GroundingModel
 
-st.set_page_config(page_title="Keyword Analysis Suite", layout="wide")
+st.set_page_config(page_title="Candour Keyword Grounding Tool", layout="wide")
 
 st.title("🚀 Keyword Analysis Suite")
-st.markdown("Enter your API keys and a list of keywords to run a full analysis.")
+st.markdown("Enter your API keys and a list of keywords to run a full analysis. This is experimental and will probably break or do something weird. If it does, let Tom know")
 
-# --- SIDEBAR FOR INPUTS ---
+# SIDEBAR FOR INPUTS
 with st.sidebar:
     st.header("⚙️ Configuration")
     alsoasked_key = st.text_input("AlsoAsked API Key", type="password")
@@ -23,14 +23,14 @@ with st.sidebar:
     
     start_button = st.button("📊 Start Full Analysis")
 
-# --- MAIN WORKFLOW ---
+# MAIN WORKFLOW
 if start_button:
     if not all([alsoasked_key, gemini_key, keywords_input]):
         st.warning("Please provide all API keys and at least one keyword.")
     else:
         keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
         
-        with st.spinner("Running full analysis... This may take a few minutes."):
+        with st.spinner("Running full analysis... This may take a few minutes. Don't navigate to the results dashboard before finishing or it will break and u will be sad"):
             # Initialize clients
             aa_client = AlsoAskedClient(api_key=alsoasked_key)
             grounding_model = GroundingModel()
