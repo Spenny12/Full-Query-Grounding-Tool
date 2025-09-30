@@ -27,19 +27,19 @@ class AlsoAskedClient:
             response = self._session.post(self.API_URL, json=payload, timeout=90)
             response.raise_for_status()
             data = response.json()
-            
-            # --- THIS IS THE CORRECTED LOGIC ---
-            # Safely check if 'queries' exists and is a non-empty list
+
             queries_list = data.get('queries')
-            if not queries_list: # Handles None or empty list []
+            if not queries_list:
                 return ["No 'queries' key in API response."]
 
-            # Now that we know the list is not empty, we can safely access the first item
             query_results = queries_list[0].get('results')
             if not query_results:
                 return []
 
-            return self._extract_questions(query_results)
+            # --- THIS IS THE MODIFIED LINE ---
+            # Extract all questions, then slice the list to get a maximum of 5.
+            all_questions = self._extract_questions(query_results)
+            return all_questions[:5]
 
         except requests.RequestException as e:
             return [f"API Request Error: {e}"]
