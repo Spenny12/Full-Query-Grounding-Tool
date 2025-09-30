@@ -12,7 +12,7 @@ else:
     results = st.session_state.results
     
     # --- SECTION 1: ALSOASKED RESULTS ---
-    st.subheader("❓ AlsoAsked 'People Also Ask' Questions")
+    st.subheader("AlsoAsked 'People Also Ask' Questions")
     
     alsoasked_data = []
     for item in results["alsoasked"]:
@@ -39,7 +39,7 @@ else:
     st.divider()
 
     # --- SECTION 2: GEMINI & GROUNDING RESULTS ---
-    st.subheader("🤖 Gemini Variations & Grounding Analysis")
+    st.subheader("Gemini Variations & Grounding Analysis. Basically, the greater the grounding %, the more likely the keyword will useful for optimising for AI visibility")
 
     for item in results["combined"]:
         st.markdown(f"#### Original Keyword: `{item['keyword']}`")
