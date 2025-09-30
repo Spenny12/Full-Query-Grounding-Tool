@@ -15,7 +15,7 @@ class AlsoAskedClient:
         })
 
     def get_questions_for_keyword(self, keyword: str, region: str = 'us', language: str = 'en') -> list:
-        """Fetches questions for a single keyword."""
+        """Fetches questions for a specific keyword."""
         payload = {
             'terms': [keyword],
             'language': language,
@@ -36,8 +36,6 @@ class AlsoAskedClient:
             if not query_results:
                 return []
 
-            # --- THIS IS THE MODIFIED LINE ---
-            # Extract all questions, then slice the list to get a maximum of 5.
             all_questions = self._extract_questions(query_results)
             return all_questions[:5]
 
