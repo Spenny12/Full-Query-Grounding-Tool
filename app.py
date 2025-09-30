@@ -5,7 +5,7 @@ from utils.grounding_client import GroundingModel
 
 st.set_page_config(page_title="Candour Keyword Grounding Tool", layout="wide")
 
-st.title("🚀 Keyword Analysis Suite")
+st.title("Candour Keyword Grounding Tool")
 st.markdown("Enter your API keys and a list of keywords to run a full analysis. This is experimental and will probably break or do something weird. If it does, let Tom know")
 
 # SIDEBAR FOR INPUTS
