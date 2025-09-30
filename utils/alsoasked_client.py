@@ -28,11 +28,19 @@ class AlsoAskedClient:
             response.raise_for_status()
             data = response.json()
             
-            query_results = data.get('queries', [{}])[0].get('results')
+            # --- THIS IS THE CORRECTED LOGIC ---
+            # Safely check if 'queries' exists and is a non-empty list
+            queries_list = data.get('queries')
+            if not queries_list: # Handles None or empty list []
+                return ["No 'queries' key in API response."]
+
+            # Now that we know the list is not empty, we can safely access the first item
+            query_results = queries_list[0].get('results')
             if not query_results:
                 return []
-            
+
             return self._extract_questions(query_results)
+
         except requests.RequestException as e:
             return [f"API Request Error: {e}"]
         except (KeyError, IndexError):
