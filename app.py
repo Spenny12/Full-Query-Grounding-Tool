@@ -43,7 +43,7 @@ with st.sidebar:
             if st.button("➕ Add Persona"):
                 st.session_state.persona_count += 1
     with col2:
-        # --- FIX: Use forced rerun to ensure the button hides immediately ---
+        # --- Control "Remove Persona" button visibility and action ---
         if st.session_state.persona_count > 0:
             if st.button("➖ Remove Persona"):
                 # Action: decrement count and clear the associated input state.
@@ -54,17 +54,19 @@ with st.sidebar:
                 # Check if we just removed the last persona (count went to 0)
                 # If so, force a Streamlit rerun to hide the button immediately.
                 if st.session_state.persona_count == 0:
-                    st.rerun() # Forces a full script rerun with the new state (count=0)
+                    st.rerun()
         # ------------------------
 
-    # --- Only loop and display inputs when count > 0 ---
+    # --- CHANGE: Using st.text_area for wrapping text ---
     for i in range(st.session_state.persona_count):
-        st.session_state.personas[i] = st.text_input(
+        st.session_state.personas[i] = st.text_area( # CHANGED TO st.text_area
             f"Persona {i+1}",
             value=st.session_state.personas[i],
             key=f"persona_input_{i}",
-            placeholder="e.g., A busy parent who loves cooking"
+            placeholder="e.g., A busy parent who loves cooking, worried about time and cost.",
+            height=60 # Set a default height for better visibility
         )
+    # ----------------------------------------------------
 
     active_personas = [p.strip() for p in st.session_state.personas[:st.session_state.persona_count] if p.strip()]
     if not active_personas:
