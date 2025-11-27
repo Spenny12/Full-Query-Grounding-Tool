@@ -83,10 +83,12 @@ if start_button:
         grounding_model = GroundingModel()
 
         # Prepare data storage
-        # Only storing 'combined' (Gemini/Grounding) and 'conversation_map' (AlsoAsked expansion)
+        # We now only need to store the data that will be used for the final table.
+        # If mapping is off, we use 'combined'. If mapping is on, we use 'conversation_map'.
         st.session_state.results = {
-            "combined": [],
-            "conversation_map": []
+            "map_conversation": map_conversation, # Store the flag
+            "combined": [], # Used if map_conversation is False
+            "conversation_map": [] # Used if map_conversation is True
         }
 
         # Main processing loop
@@ -102,38 +104,50 @@ if start_button:
                     display_persona = persona
                     gemini_variations = get_gemini_variations(gemini_key, keyword, persona=persona)
 
-
-                # 2. Grounding Analysis
-                grounding_scores = grounding_model.analyze_queries(gemini_variations)
-
-                # Combine Gemini and Grounding results
-                combined_data = []
-                for i, variation in enumerate(gemini_variations):
-                    score = grounding_scores[i] if i < len(grounding_scores) else "Error"
-                    combined_data.append({
-                        "variation": variation,
-                        "score": score,
-                        "persona": display_persona,
-                        "root_keyword": keyword # Add root keyword for later mapping
-                    })
-
-                st.session_state.results["combined"].append({"keyword": keyword, "data": combined_data})
+                # 2. Grounding Analysis (on Gemini outputs)
+                gemini_grounding_scores = grounding_model.analyze_queries(gemini_variations)
 
 
-                # 3. Conditional AlsoAsked Conversation Mapping
                 if map_conversation:
-                    for variation in gemini_variations:
-                        # Use the Gemini output as the input for AlsoAsked
+                    # 3. Conversation Mapping: Use Gemini output as input for AlsoAsked
+                    for i, variation in enumerate(gemini_variations):
                         aa_questions = aa_client.get_questions_for_keyword(variation)
 
-                        # Store the expanded results
-                        for question in aa_questions:
-                            st.session_state.results["conversation_map"].append({
-                                "root_keyword": keyword,
-                                "gemini_query": variation,
-                                "expanded_question": question
-                            })
+                        # Apply Grounding Analysis to AlsoAsked outputs
+                        if aa_questions and not aa_questions[0].startswith("API"): # Check if actual questions were returned
+                            aa_grounding_scores = grounding_model.analyze_queries(aa_questions)
 
+                            # Store the expanded results
+                            for j, question in enumerate(aa_questions):
+                                score = aa_grounding_scores[j] if j < len(aa_grounding_scores) else "Error"
+                                st.session_state.results["conversation_map"].append({
+                                    "root_keyword": keyword,
+                                    "persona": display_persona,
+                                    "gemini_query": variation,
+                                    "expanded_question": question,
+                                    "grounding_score": score
+                                })
+                        else:
+                             # Handle case where AlsoAsked returns an error or no questions
+                             st.session_state.results["conversation_map"].append({
+                                "root_keyword": keyword,
+                                "persona": display_persona,
+                                "gemini_query": variation,
+                                "expanded_question": "No AlsoAsked questions found or API error.",
+                                "grounding_score": "N/A"
+                             })
+
+
+                else:
+                    # 3. Simple mode: Only store Gemini/Grounding results
+                    for i, variation in enumerate(gemini_variations):
+                        score = gemini_grounding_scores[i] if i < len(gemini_grounding_scores) else "Error"
+                        st.session_state.results["combined"].append({
+                            "root_keyword": keyword,
+                            "persona": display_persona,
+                            "gemini_query": variation,
+                            "grounding_score": score
+                        })
 
     st.success("Analysis complete! Switching to the results dashboard...")
     st.switch_page("pages/1_Results_Dashboard.py")

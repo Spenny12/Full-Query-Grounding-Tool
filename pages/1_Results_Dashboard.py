@@ -10,90 +10,90 @@ if 'results' not in st.session_state:
     st.page_link("app.py", label="Go to Home Page", icon="🏠")
 else:
     results = st.session_state.results
-    
+    map_conversation = results.get("map_conversation", False)
+
     @st.cache_data
     def convert_df_to_csv(df):
         return df.to_csv(index=False).encode('utf-8')
 
-    # --- SECTION 1: GEMINI & GROUNDING RESULTS ---
-    st.subheader("Gemini Variations & Grounding Analysis")
-    st.markdown("The greater the grounding score, the more likely the keyword will be useful for optimising for AI visibility.")
+    # --- SINGLE DYNAMIC RESULTS TABLE ---
 
-    # Flatten the combined results for easier display/download
-    combined_flat_data = []
-    for keyword_set in results["combined"]:
-        keyword = keyword_set['keyword']
-        for res in keyword_set['data']:
-            score = res['score']
-            is_grounded = "Yes" if isinstance(score, float) and score >= 50.0 else "No"
+    if map_conversation:
+        # Use conversation_map data structure
+        table_data = results.get("conversation_map")
+        title = "Conversation Mapping & Grounding Analysis"
+        info_text = "Analysis of Gemini-generated queries, expanded by AlsoAsked, with grounding scores applied to the *expanded questions*."
 
-            # Append to the flat list
-            combined_flat_data.append({
-                "Original Keyword": keyword,
-                "Persona": res.get('persona', '(N/A)'),
-                "Generated Query (from Gemini)": res['variation'],
-                "Needs Grounding?": is_grounded,
-                "Grounding Score": score
-            })
+        # Define columns for the Conversation Mapping table
+        column_map = {
+            "root_keyword": "Original Keyword",
+            "persona": "Persona",
+            "gemini_query": st.column_config.TextColumn("Gemini Query (Initial Step)", width="medium"),
+            "expanded_question": st.column_config.TextColumn("AlsoAsked Expanded Question (Next Step)", width="large"),
+            "grounding_score": st.column_config.ProgressColumn(
+                "Grounding Score (%)",
+                format="%.1f%%",
+                min_value=0,
+                max_value=100,
+            ),
+        }
 
-    if combined_flat_data:
-        # Display the full table
-        combined_df = pd.DataFrame(combined_flat_data)
+    else:
+        # Use combined data structure (Simple mode)
+        table_data = results.get("combined")
+        title = "Gemini Query Variations & Grounding Analysis"
+        info_text = "Grounding analysis applied to the Gemini-generated query variations."
+
+        # Define columns for the Simple table
+        column_map = {
+            "root_keyword": "Original Keyword",
+            "persona": "Persona",
+            "gemini_query": st.column_config.TextColumn("Generated Query (from Gemini)", width="large"),
+            "grounding_score": st.column_config.ProgressColumn(
+                "Grounding Score (%)",
+                format="%.1f%%",
+                min_value=0,
+                max_value=100,
+            ),
+        }
+
+    # --- DISPLAY THE TABLE ---
+    st.subheader(title)
+    st.markdown(f"*{info_text}*")
+
+    if table_data:
+        # Normalize data keys to standard display keys
+        df = pd.DataFrame(table_data)
+
+        # Drop the intermediate 'data' key if it somehow exists
+        if 'data' in df.columns:
+            df = df.drop(columns=['data'])
+
+        # Rename columns and configure display
+        df.rename(columns={'root_keyword': 'Original Keyword', 'persona': 'Persona', 'gemini_query': 'Generated Query (from Gemini)', 'expanded_question': 'AlsoAsked Expanded Question (Next Step)', 'grounding_score': 'Grounding Score'}, inplace=True)
+
+        # Determine the set of columns to actually display based on the selected mode
+        display_columns = list(column_map.keys())
+
+        # Create column configuration dictionary for st.dataframe
+        column_config_dict = {
+            col_name: config for col_name, config in column_map.items()
+            if col_name in display_columns
+        }
 
         st.dataframe(
-            combined_df,
-            column_config={
-                "Original Keyword": st.column_config.TextColumn(width="small"),
-                "Persona": st.column_config.TextColumn(width="medium"),
-                "Generated Query (from Gemini)": st.column_config.TextColumn(width="large"),
-                "Needs Grounding?": st.column_config.TextColumn(width="small"),
-                "Grounding Score": st.column_config.ProgressColumn(
-                    "Grounding Score (%)",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                ),
-            },
+            df[df.columns.intersection(column_map.keys())].rename(columns={k: v.label if hasattr(v, 'label') else v for k, v in column_map.items()}),
+            column_config=column_config_dict,
             use_container_width=True,
             hide_index=True
         )
 
         st.download_button(
-            label="📥 Download Gemini/Grounding Results as CSV",
-            data=convert_df_to_csv(combined_df),
-            file_name="gemini_grounding_results.csv",
+            label=f"📥 Download {title} Results as CSV",
+            data=convert_df_to_csv(df),
+            file_name="keyword_analysis_results.csv",
             mime="text/csv",
         )
 
     else:
-        st.info("No Gemini variations were generated.")
-
-    st.divider()
-
-    # --- SECTION 2: CONVERSATION MAPPING RESULTS (NEW) ---
-    st.subheader("Conversation Mapping: Gemini Queries Expanded by AlsoAsked")
-
-    conversation_map_data = results.get("conversation_map")
-
-    if conversation_map_data:
-        map_df = pd.DataFrame(conversation_map_data)
-
-        st.dataframe(
-            map_df,
-            column_config={
-                "root_keyword": "Original Keyword",
-                "gemini_query": st.column_config.TextColumn("Gemini Query (Initial Step)"),
-                "expanded_question": st.column_config.TextColumn("AlsoAsked Expanded Question (Next Step)")
-            },
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.download_button(
-            label="📥 Download Conversation Map Results as CSV",
-            data=convert_df_to_csv(map_df),
-            file_name="conversation_map_results.csv",
-            mime="text/csv",
-        )
-    else:
-        st.info("The 'Map out likely conversation' option was not selected, or no expanded questions were found.")
+        st.info("No data was generated for the selected analysis mode.")
