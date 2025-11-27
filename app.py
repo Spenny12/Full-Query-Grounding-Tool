@@ -42,10 +42,14 @@ with st.sidebar:
             if st.button("➕ Add Persona"):
                 st.session_state.persona_count += 1
     with col2:
+        # --- FIX APPLIED HERE ---
+        # Only show the button if count > 1.
         if st.session_state.persona_count > 1:
             if st.button("➖ Remove Persona"):
+                # Action only executes if count is > 1.
                 st.session_state.persona_count -= 1
-                st.session_state.personas[st.session_state.persona_count] = ""
+                st.session_state.personas[st.session_state.persona_count] = "" # Clear the removed persona
+        # ------------------------
 
     for i in range(st.session_state.persona_count):
         st.session_state.personas[i] = st.text_input(
