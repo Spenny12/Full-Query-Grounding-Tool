@@ -32,8 +32,9 @@ with st.sidebar:
     st.header("🎭 User Personas (Optional)")
     st.markdown("Enter up to 5 user personas to generate targeted query variations.")
 
+    # --- FIX 1: Initialize persona_count to 0 ---
     if 'persona_count' not in st.session_state:
-        st.session_state.persona_count = 1
+        st.session_state.persona_count = 0
         st.session_state.personas = [""] * 5
 
     col1, col2 = st.columns(2)
@@ -42,15 +43,17 @@ with st.sidebar:
             if st.button("➕ Add Persona"):
                 st.session_state.persona_count += 1
     with col2:
-        # --- FIX APPLIED HERE ---
-        # Only show the button if count > 1.
-        if st.session_state.persona_count > 1:
+        # --- FIX 2 & 3: Control "Remove Persona" button visibility and action ---
+        # Only show the button if count > 0.
+        if st.session_state.persona_count > 0:
             if st.button("➖ Remove Persona"):
-                # Action only executes if count is > 1.
                 st.session_state.persona_count -= 1
-                st.session_state.personas[st.session_state.persona_count] = "" # Clear the removed persona
+                # Clear the input value of the persona that was just removed
+                if st.session_state.persona_count >= 0:
+                    st.session_state.personas[st.session_state.persona_count] = ""
         # ------------------------
 
+    # --- FIX 4: Only loop and display inputs when count > 0 ---
     for i in range(st.session_state.persona_count):
         st.session_state.personas[i] = st.text_input(
             f"Persona {i+1}",
