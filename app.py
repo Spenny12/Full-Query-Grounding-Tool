@@ -83,12 +83,10 @@ if start_button:
         grounding_model = GroundingModel()
 
         # Prepare data storage
-        # We now only need to store the data that will be used for the final table.
-        # If mapping is off, we use 'combined'. If mapping is on, we use 'conversation_map'.
         st.session_state.results = {
-            "map_conversation": map_conversation, # Store the flag
-            "combined": [], # Used if map_conversation is False
-            "conversation_map": [] # Used if map_conversation is True
+            "map_conversation": map_conversation,
+            "combined": [],
+            "conversation_map": []
         }
 
         # Main processing loop
@@ -114,7 +112,7 @@ if start_button:
                         aa_questions = aa_client.get_questions_for_keyword(variation)
 
                         # Apply Grounding Analysis to AlsoAsked outputs
-                        if aa_questions and not aa_questions[0].startswith("API"): # Check if actual questions were returned
+                        if aa_questions and not aa_questions[0].startswith("API"):
                             aa_grounding_scores = grounding_model.analyze_queries(aa_questions)
 
                             # Store the expanded results
@@ -139,14 +137,15 @@ if start_button:
 
 
                 else:
-                    # 3. Simple mode: Only store Gemini/Grounding results
+                    # 3. Simple mode: Only store Gemini/Grounding results (Uses consistent dictionary keys)
                     for i, variation in enumerate(gemini_variations):
                         score = gemini_grounding_scores[i] if i < len(gemini_grounding_scores) else "Error"
                         st.session_state.results["combined"].append({
                             "root_keyword": keyword,
                             "persona": display_persona,
                             "gemini_query": variation,
-                            "grounding_score": score
+                            "grounding_score": score,
+                            "expanded_question": "N/A" # Include this key for consistent column creation in the dashboard
                         })
 
     st.success("Analysis complete! Switching to the results dashboard...")
