@@ -21,6 +21,43 @@ with st.sidebar:
         placeholder="Content marketing for startups\nHealthy breakfast ideas\nBeginner's guide to Python"
     )
     
+    # --- NEW PERSONA INPUT SECTION ---
+    st.header("🎭 User Personas (Optional)")
+    st.markdown("Enter up to 5 user personas to generate targeted query variations.")
+
+    # Using st.session_state to manage the dynamic list of persona inputs
+    if 'persona_count' not in st.session_state:
+        st.session_state.persona_count = 1
+        st.session_state.personas = [""] * 5 # Initialize a list to hold 5 persona strings
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.session_state.persona_count < 5:
+            if st.button("➕ Add Persona"):
+                st.session_state.persona_count += 1
+    with col2:
+        if st.session_state.persona_count > 1:
+            if st.button("➖ Remove Persona"):
+                st.session_state.persona_count -= 1
+                st.session_state.personas[st.session_state.persona_count] = "" # Clear the removed persona
+
+
+    # Display text inputs based on the count
+    for i in range(st.session_state.persona_count):
+        st.session_state.personas[i] = st.text_input(
+            f"Persona {i+1}",
+            value=st.session_state.personas[i],
+            key=f"persona_input_{i}",
+            placeholder="e.g., A busy parent who loves cooking"
+        )
+
+    # Filter and clean the active personas
+    active_personas = [p.strip() for p in st.session_state.personas[:st.session_state.persona_count] if p.strip()]
+    if not active_personas:
+        # If no persona is entered, use a default placeholder for the loop
+        active_personas = ["(No Persona Applied)"]
+    # ---------------------------------
+
     start_button = st.button("📊 Start Full Analysis")
 
 # MAIN WORKFLOW
@@ -29,37 +66,46 @@ if start_button:
         st.warning("Please provide all API keys and at least one keyword.")
     else:
         keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
-        
+
         with st.spinner("Running full analysis... This may take a few minutes. Don't navigate to the results dashboard before finishing or it will break and u will be sad"):
             # Initialize clients
             aa_client = AlsoAskedClient(api_key=alsoasked_key)
             grounding_model = GroundingModel()
-            
+
             # Prepare data storage
             st.session_state.results = {
                 "alsoasked": [],
                 "combined": []
             }
-            
+
             # Main processing loop
             for keyword in keywords:
                 # 1. AlsoAsked
                 aa_questions = aa_client.get_questions_for_keyword(keyword)
                 st.session_state.results["alsoasked"].append({"keyword": keyword, "questions": aa_questions})
-                
-                # 2. Gemini Variations
-                gemini_variations = get_gemini_variations(gemini_key, keyword)
-                
-                # 3. Grounding Analysis
-                grounding_scores = grounding_model.analyze_queries(gemini_variations)
-                
-                # Combine Gemini and Grounding results
-                combined_data = []
-                for i, variation in enumerate(gemini_variations):
-                    score = grounding_scores[i] if i < len(grounding_scores) else "Error"
-                    combined_data.append({"variation": variation, "score": score})
-                
-                st.session_state.results["combined"].append({"keyword": keyword, "data": combined_data})
+
+                # --- NEW LOGIC TO HANDLE PERSONAS ---
+                for persona in active_personas:
+                    # 2. Gemini Variations
+                    if persona == "(No Persona Applied)":
+                        display_persona = None
+                        gemini_variations = get_gemini_variations(gemini_key, keyword, persona=None) # Pass None
+                    else:
+                        display_persona = persona
+                        gemini_variations = get_gemini_variations(gemini_key, keyword, persona=persona) # Pass the persona
+
+                    # 3. Grounding Analysis
+                    grounding_scores = grounding_model.analyze_queries(gemini_variations)
+
+                    # Combine Gemini and Grounding results
+                    combined_data = []
+                    for i, variation in enumerate(gemini_variations):
+                        score = grounding_scores[i] if i < len(grounding_scores) else "Error"
+                        combined_data.append({"variation": variation, "score": score, "persona": display_persona})
+
+                    # Append results to the combined list
+                    st.session_state.results["combined"].append({"keyword": keyword, "data": combined_data})
+                # -----------------------------------
 
         st.success("Analysis complete! Switching to the results dashboard...")
         st.switch_page("pages/1_Results_Dashboard.py")

@@ -41,31 +41,32 @@ else:
     # --- SECTION 2: GEMINI & GROUNDING RESULTS ---
     st.subheader("Gemini Variations & Grounding Analysis. Basically, the greater the grounding %, the more likely the keyword will useful for optimising for AI visibility")
 
-    for item in results["combined"]:
-        st.markdown(f"#### Original Keyword: `{item['keyword']}`")
-        
-        # Prepare data for the table
-        display_data = []
-        grounded_count = 0
-        for res in item['data']:
+    # Flatten the combined results for easier display/download
+    combined_flat_data = []
+    for keyword_set in results["combined"]:
+        keyword = keyword_set['keyword']
+        for res in keyword_set['data']:
             score = res['score']
             is_grounded = "Yes" if isinstance(score, float) and score >= 50.0 else "No"
-            if is_grounded == "Yes":
-                grounded_count += 1
-            
-            display_data.append({
+
+            # Append to the flat list
+            combined_flat_data.append({
+                "Original Keyword": keyword,
+                "Persona": res.get('persona', '(N/A)'), # Include Persona
                 "Generated Query (from Gemini)": res['variation'],
                 "Needs Grounding?": is_grounded,
                 "Grounding Score": score
             })
-        
-        summary_text = f"**Summary:** {grounded_count} out of {len(display_data)} generated queries likely need grounding."
-        st.markdown(summary_text)
 
-        df = pd.DataFrame(display_data)
+    if combined_flat_data:
+        # Display the full table
+        combined_df = pd.DataFrame(combined_flat_data)
+
         st.dataframe(
-            df,
+            combined_df,
             column_config={
+                "Original Keyword": st.column_config.TextColumn(width="small"),
+                "Persona": st.column_config.TextColumn(width="medium"), # New column config
                 "Generated Query (from Gemini)": st.column_config.TextColumn(width="large"),
                 "Needs Grounding?": st.column_config.TextColumn(width="small"),
                 "Grounding Score": st.column_config.ProgressColumn(
@@ -78,3 +79,17 @@ else:
             use_container_width=True,
             hide_index=True
         )
+
+        @st.cache_data
+        def convert_df_to_csv(df):
+            return df.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            label="📥 Download Gemini/Grounding Results as CSV",
+            data=convert_df_to_csv(combined_df),
+            file_name="gemini_grounding_results.csv",
+            mime="text/csv",
+        )
+
+    else:
+        st.info("No Gemini variations were generated.")
