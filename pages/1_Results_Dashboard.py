@@ -11,24 +11,21 @@ if 'results' not in st.session_state:
 else:
     results = st.session_state.results
     
-    # Define CSV conversion function
-    @st.cache_data
-    def convert_df_to_csv(df):
-        return df.to_csv(index=False).encode('utf-8')
-
-    # --- SECTION 1: ALSOASKED RESULTS (Original Keyword) ---
-    st.subheader("AlsoAsked 'People Also Ask' Questions (Original Keywords)")
+    # --- SECTION 1: ALSOASKED RESULTS ---
+    st.subheader("AlsoAsked 'People Also Ask' Questions")
 
     alsoasked_data = []
-    # This section is only included if 'alsoasked' data is present (i.e., if AA was run for the original keywords)
-    if results.get("alsoasked"):
-        for item in results["alsoasked"]:
-            for question in item["questions"]:
-                alsoasked_data.append({"Original Keyword": item["keyword"], "Generated Question": question})
+    for item in results["alsoasked"]:
+        for question in item["questions"]:
+            alsoasked_data.append({"Original Keyword": item["keyword"], "Generated Question": question})
 
     if alsoasked_data:
         aa_df = pd.DataFrame(alsoasked_data)
         st.dataframe(aa_df, use_container_width=True, hide_index=True)
+
+        @st.cache_data
+        def convert_df_to_csv(df):
+            return df.to_csv(index=False).encode('utf-8')
 
         st.download_button(
             label="📥 Download AlsoAsked Results as CSV",
@@ -37,30 +34,29 @@ else:
             mime="text/csv",
         )
     else:
-        st.info("No AlsoAsked questions were found (or the feature was not enabled for original keywords).")
+        st.info("No questions were found by AlsoAsked.")
 
     st.divider()
 
     # --- SECTION 2: GEMINI & GROUNDING RESULTS ---
-    st.subheader("Gemini Variations & Grounding Analysis")
-    st.markdown("The greater the grounding score, the more likely the keyword will be useful for optimising for AI visibility.")
+    st.subheader("Gemini Variations & Grounding Analysis. Basically, the greater the grounding %, the more likely the keyword will useful for optimising for AI visibility")
 
+    # Flatten the combined results for easier display/download
     combined_flat_data = []
-    if results.get("combined"):
-        for keyword_set in results["combined"]:
-            keyword = keyword_set['keyword']
-            for res in keyword_set['data']:
-                score = res['score']
-                is_grounded = "Yes" if isinstance(score, float) and score >= 50.0 else "No"
+    for keyword_set in results["combined"]:
+        keyword = keyword_set['keyword']
+        for res in keyword_set['data']:
+            score = res['score']
+            is_grounded = "Yes" if isinstance(score, float) and score >= 50.0 else "No"
 
-                # Append to the flat list
-                combined_flat_data.append({
-                    "Original Keyword": keyword,
-                    "Persona": res.get('persona', '(N/A)'),
-                    "Generated Query (from Gemini)": res['variation'],
-                    "Needs Grounding?": is_grounded,
-                    "Grounding Score": score
-                })
+            # Append to the flat list
+            combined_flat_data.append({
+                "Original Keyword": keyword,
+                "Persona": res.get('persona', '(N/A)'), # Include Persona
+                "Generated Query (from Gemini)": res['variation'],
+                "Needs Grounding?": is_grounded,
+                "Grounding Score": score
+            })
 
     if combined_flat_data:
         # Display the full table
@@ -70,7 +66,7 @@ else:
             combined_df,
             column_config={
                 "Original Keyword": st.column_config.TextColumn(width="small"),
-                "Persona": st.column_config.TextColumn(width="medium"),
+                "Persona": st.column_config.TextColumn(width="medium"), # New column config
                 "Generated Query (from Gemini)": st.column_config.TextColumn(width="large"),
                 "Needs Grounding?": st.column_config.TextColumn(width="small"),
                 "Grounding Score": st.column_config.ProgressColumn(
@@ -84,41 +80,16 @@ else:
             hide_index=True
         )
 
+        @st.cache_data
+        def convert_df_to_csv(df):
+            return df.to_csv(index=False).encode('utf-8')
+
         st.download_button(
             label="📥 Download Gemini/Grounding Results as CSV",
             data=convert_df_to_csv(combined_df),
             file_name="gemini_grounding_results.csv",
             mime="text/csv",
         )
+
     else:
         st.info("No Gemini variations were generated.")
-
-    st.divider()
-
-    # --- SECTION 3: CONVERSATION MAP RESULTS (NEW) ---
-    st.subheader("Conversation Map: PAA for Gemini Queries")
-
-    conversation_map_data = []
-    if results.get("conversation_map"):
-        for item in results["conversation_map"]:
-            base_keyword = item['keyword']
-            persona = item['persona']
-            for map_result in item['map_results']:
-                gemini_variation = map_result['gemini_variation']
-                for question in map_result['paa_questions']:
-                    conversation_map_data.append({
-                        "Original Keyword": base_keyword,
-                        "Persona": persona,
-                        "Gemini Query": gemini_variation,
-                        "Next PAA Question": question
-                    })
-
-    if conversation_map_data:
-        map_df = pd.DataFrame(conversation_map_data)
-        st.dataframe(
-            map_df,
-            column_config={
-                "Original Keyword": st.column_config.TextColumn(width="small"),
-                "Persona": st.column_config.TextColumn(width="small"),
-                "Gemini Query": st.column_config.TextColumn(width="medium"),
-                "Next PAA Question": st.column_config.Text
