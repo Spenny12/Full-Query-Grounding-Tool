@@ -14,6 +14,14 @@ with st.sidebar:
     alsoasked_key = st.text_input("AlsoAsked API Key", type="password")
     gemini_key = st.text_input("Gemini API Key", type="password")
 
+    # --- NEW OPTION CHECKBOX ---
+    st.header("🗺️ Advanced Mapping")
+    map_conversation = st.checkbox(
+        "Map out likely conversation (Requires AlsoAsked API)",
+        help="If checked, the Gemini-generated query variations will be pushed back to the AlsoAsked API to find deeper conversational questions."
+    )
+    # ---------------------------
+
     st.header("✍️ Keywords")
     keywords_input = st.text_area(
         "Enter keywords, one per line:",
@@ -21,14 +29,12 @@ with st.sidebar:
         placeholder="Content marketing for startups\nHealthy breakfast ideas\nBeginner's guide to Python"
     )
 
-    # --- NEW PERSONA INPUT SECTION ---
     st.header("🎭 User Personas (Optional)")
     st.markdown("Enter up to 5 user personas to generate targeted query variations.")
 
-    # Using st.session_state to manage the dynamic list of persona inputs
     if 'persona_count' not in st.session_state:
         st.session_state.persona_count = 1
-        st.session_state.personas = [""] * 5 # Initialize a list to hold 5 persona strings
+        st.session_state.personas = [""] * 5
 
     col1, col2 = st.columns(2)
     with col1:
@@ -39,10 +45,8 @@ with st.sidebar:
         if st.session_state.persona_count > 1:
             if st.button("➖ Remove Persona"):
                 st.session_state.persona_count -= 1
-                st.session_state.personas[st.session_state.persona_count] = "" # Clear the removed persona
+                st.session_state.personas[st.session_state.persona_count] = ""
 
-
-    # Display text inputs based on the count
     for i in range(st.session_state.persona_count):
         st.session_state.personas[i] = st.text_input(
             f"Persona {i+1}",
@@ -51,61 +55,85 @@ with st.sidebar:
             placeholder="e.g., A busy parent who loves cooking"
         )
 
-    # Filter and clean the active personas
     active_personas = [p.strip() for p in st.session_state.personas[:st.session_state.persona_count] if p.strip()]
     if not active_personas:
-        # If no persona is entered, use a default placeholder for the loop
         active_personas = ["(No Persona Applied)"]
-    # ---------------------------------
 
     start_button = st.button("📊 Start Full Analysis")
 
 # MAIN WORKFLOW
 if start_button:
-    if not all([alsoasked_key, gemini_key, keywords_input]):
-        st.warning("Please provide all API keys and at least one keyword.")
-    else:
-        keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
+    # --- CHECK FOR REQUIRED KEYS ---
+    if map_conversation and not alsoasked_key:
+         st.error("The 'Map out likely conversation' option requires the AlsoAsked API Key.")
+         st.stop()
 
-        with st.spinner("Running full analysis... This may take a few minutes. Don't navigate to the results dashboard before finishing or it will break and u will be sad"):
-            # Initialize clients
-            aa_client = AlsoAskedClient(api_key=alsoasked_key)
-            grounding_model = GroundingModel()
+    if not all([gemini_key, keywords_input]):
+        st.warning("Please provide the Gemini API key and at least one keyword.")
+        st.stop()
+    # -------------------------------
 
-            # Prepare data storage
-            st.session_state.results = {
-                "alsoasked": [],
-                "combined": []
-            }
+    keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
 
-            # Main processing loop
-            for keyword in keywords:
-                # 1. AlsoAsked
-                aa_questions = aa_client.get_questions_for_keyword(keyword)
-                st.session_state.results["alsoasked"].append({"keyword": keyword, "questions": aa_questions})
+    with st.spinner("Running full analysis... This may take a few minutes. Don't navigate to the results dashboard before finishing or it will break and u will be sad"):
+        # Initialize clients
+        if map_conversation:
+             aa_client = AlsoAskedClient(api_key=alsoasked_key)
 
-                # --- NEW LOGIC TO HANDLE PERSONAS ---
-                for persona in active_personas:
-                    # 2. Gemini Variations
-                    if persona == "(No Persona Applied)":
-                        display_persona = None
-                        gemini_variations = get_gemini_variations(gemini_key, keyword, persona=None) # Pass None
-                    else:
-                        display_persona = persona
-                        gemini_variations = get_gemini_variations(gemini_key, keyword, persona=persona) # Pass the persona
+        grounding_model = GroundingModel()
 
-                    # 3. Grounding Analysis
-                    grounding_scores = grounding_model.analyze_queries(gemini_variations)
+        # Prepare data storage
+        # Only storing 'combined' (Gemini/Grounding) and 'conversation_map' (AlsoAsked expansion)
+        st.session_state.results = {
+            "combined": [],
+            "conversation_map": []
+        }
 
-                    # Combine Gemini and Grounding results
-                    combined_data = []
-                    for i, variation in enumerate(gemini_variations):
-                        score = grounding_scores[i] if i < len(grounding_scores) else "Error"
-                        combined_data.append({"variation": variation, "score": score, "persona": display_persona})
+        # Main processing loop
+        for keyword in keywords:
 
-                    # Append results to the combined list
-                    st.session_state.results["combined"].append({"keyword": keyword, "data": combined_data})
-                # -----------------------------------
+            for persona in active_personas:
 
-        st.success("Analysis complete! Switching to the results dashboard...")
-        st.switch_page("pages/1_Results_Dashboard.py")
+                # 1. Gemini Variations
+                if persona == "(No Persona Applied)":
+                    display_persona = None
+                    gemini_variations = get_gemini_variations(gemini_key, keyword, persona=None)
+                else:
+                    display_persona = persona
+                    gemini_variations = get_gemini_variations(gemini_key, keyword, persona=persona)
+
+
+                # 2. Grounding Analysis
+                grounding_scores = grounding_model.analyze_queries(gemini_variations)
+
+                # Combine Gemini and Grounding results
+                combined_data = []
+                for i, variation in enumerate(gemini_variations):
+                    score = grounding_scores[i] if i < len(grounding_scores) else "Error"
+                    combined_data.append({
+                        "variation": variation,
+                        "score": score,
+                        "persona": display_persona,
+                        "root_keyword": keyword # Add root keyword for later mapping
+                    })
+
+                st.session_state.results["combined"].append({"keyword": keyword, "data": combined_data})
+
+
+                # 3. Conditional AlsoAsked Conversation Mapping
+                if map_conversation:
+                    for variation in gemini_variations:
+                        # Use the Gemini output as the input for AlsoAsked
+                        aa_questions = aa_client.get_questions_for_keyword(variation)
+
+                        # Store the expanded results
+                        for question in aa_questions:
+                            st.session_state.results["conversation_map"].append({
+                                "root_keyword": keyword,
+                                "gemini_query": variation,
+                                "expanded_question": question
+                            })
+
+
+    st.success("Analysis complete! Switching to the results dashboard...")
+    st.switch_page("pages/1_Results_Dashboard.py")
