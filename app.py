@@ -88,7 +88,7 @@ if start_button:
 
     keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
 
-    with st.spinner("Running full analysis... This may take a few minutes. Don't navigate to the results dashboard before finishing or it will break and u will be sad"):
+    with st.spinner("Running full analysis... This may take a few minutes. Don't navigate to the results dashboard before finishing or it will break. It will probably take a really long time if the 'advanced mapping' function is enabled."):
         # Initialize clients
         if map_conversation:
              aa_client = AlsoAskedClient(api_key=alsoasked_key)
