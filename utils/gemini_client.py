@@ -1,15 +1,17 @@
 import google.generativeai as genai
 
 def get_gemini_variations(api_key: str, keyword: str, persona: str = None) -> list:
-    """Generates 5 conversational variations of a keyword using the Gemini API, optionally tailored by a persona."""
+    """Generates variations and returns associated grounding search queries."""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
 
-        persona_prefix = ""
-        if persona:
-            # Modify the prompt to include the persona instruction
-            persona_prefix = f"You are acting as a user with the persona: '{persona}'. "
+        # Initialize model with the google_search tool
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            tools=[{"google_search": {}}]
+        )
+
+        persona_prefix = f"You are acting as a user with the persona: '{persona}'. " if persona else ""
 
         prompt = f"""
         {persona_prefix}Generate exactly 5 possible variations of how the following keyword could be used
@@ -19,9 +21,29 @@ def get_gemini_variations(api_key: str, keyword: str, persona: str = None) -> li
         - Return only a numbered list of the 5 variations.
         KEYWORD: "{keyword}"
         """
+
         response = model.generate_content(prompt)
-        variations = response.text.strip().split('\n')
-        # Clean up numbering (e.g., "1. ") from the start of each line
-        return [line.split('. ', 1)[-1] for line in variations if line]
+
+        # Extract web search queries from grounding metadata
+        search_queries = []
+        if hasattr(response.candidates[0], 'grounding_metadata'):
+            metadata = response.candidates[0].grounding_metadata
+            # webSearchQueries contains the actual queries Gemini executed
+            if hasattr(metadata, 'web_search_queries'):
+                search_queries = metadata.web_search_queries
+
+        raw_variations = response.text.strip().split('\n')
+        # Clean up numbering (e.g., "1. ")
+        clean_variations = [line.split('. ', 1)[-1] for line in raw_variations if line]
+
+        # Combine the variation with the search queries used
+        results = []
+        for var in clean_variations:
+            results.append({
+                "variation": var,
+                "web_search_queries": ", ".join(search_queries) if search_queries else "None"
+            })
+
+        return results[:5]
     except Exception as e:
-        return [f"Gemini API Error: {e}"]
+        return [{"variation": f"Gemini API Error: {e}", "web_search_queries": "N/A"}]
