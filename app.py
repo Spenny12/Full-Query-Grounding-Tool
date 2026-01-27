@@ -47,19 +47,26 @@ if start_button:
                 # FIXED: This line must align with 'display_persona' above
                 gemini_data = get_gemini_variations(gemini_key, keyword, persona=display_persona)
 
+                # Now, gemini_data[i]["web_search_queries"] is specific to gemini_data[i]["variation"]
                 gemini_variations = [item["variation"] for item in gemini_data if item["variation"]]
-                gemini_search_metadata = [item["web_search_queries"] for item in gemini_data if item["variation"]]
 
-                if gemini_variations:
-                    gemini_grounding_scores = grounding_model.analyze_queries(gemini_variations)
-                    for i, variation in enumerate(gemini_variations):
-                        score = gemini_grounding_scores[i]
-                        st.session_state.results["combined"].append({
-                            "root_keyword": keyword,
-                            "persona": display_persona,
-                            "gemini_query": variation,
-                            "web_search_queries": gemini_search_metadata[i],
-                            "grounding_score": score
-                        })
+                if not gemini_variations:
+                    continue
+
+                # Grounding analysis (HuggingFace model) still runs on the variation text
+                gemini_grounding_scores = grounding_model.analyze_queries(gemini_variations)
+
+                for i, variation in enumerate(gemini_variations):
+                    # Extract the specific metadata captured in Phase 2 above
+                    specific_search_queries = gemini_data[i]["web_search_queries"]
+
+                    score = gemini_grounding_scores[i]
+                    st.session_state.results["combined"].append({
+                        "root_keyword": keyword,
+                        "persona": display_persona,
+                        "gemini_query": variation,
+                        "web_search_queries": specific_search_queries, # SPECIFIC TO THIS ROW
+                        "grounding_score": score
+                    })
 
     st.switch_page("pages/1_Results_Dashboard.py")
