@@ -27,6 +27,7 @@ with st.sidebar:
     start_button = st.button("📊 Start Full Analysis")
 
 if start_button:
+    # Ensure this block is indented 1 level (4 spaces)
     keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
     active_personas = [p.strip() for p in st.session_state.personas[:st.session_state.persona_count] if p.strip()] or ["(No Persona Applied)"]
 
@@ -38,8 +39,12 @@ if start_button:
             aa_client = AlsoAskedClient(api_key=alsoasked_key)
 
         for keyword in keywords:
+            # This loop is inside the 'with st.spinner' block
             for persona in active_personas:
+                # This block is inside the 'for persona' loop
                 display_persona = None if persona == "(No Persona Applied)" else persona
+
+                # FIXED: This line must align with 'display_persona' above
                 gemini_data = get_gemini_variations(gemini_key, keyword, persona=display_persona)
 
                 gemini_variations = [item["variation"] for item in gemini_data if item["variation"]]
