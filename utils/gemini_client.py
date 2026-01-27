@@ -1,14 +1,15 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 def get_gemini_variations(api_key: str, keyword: str, persona: str = None) -> list:
-    """Generates variations and returns associated grounding search queries."""
+    """Generates variations using the new Google Gen AI SDK with search grounding."""
     try:
-        genai.configure(api_key=api_key)
+        # Initialize the new unified Client
+        client = genai.Client(api_key=api_key)
 
-        # Initialize model with the google_search tool
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
-            tools=[{"google_search": {}}]
+        # Configure the Google Search tool correctly for the new SDK
+        google_search_tool = types.Tool(
+            google_search=types.GoogleSearch()
         )
 
         persona_prefix = f"You are acting as a user with the persona: '{persona}'. " if persona else ""
@@ -17,26 +18,29 @@ def get_gemini_variations(api_key: str, keyword: str, persona: str = None) -> li
         {persona_prefix}Generate exactly 5 possible variations of how the following keyword could be used
         in a conversational query by a user asking a question to an LLM.
         - The variations should be natural-sounding questions or phrases.
-        - Do not add any introduction, conclusion, or extra formatting.
         - Return only a numbered list of the 5 variations.
         KEYWORD: "{keyword}"
         """
 
-        response = model.generate_content(prompt)
+        # Call the API using the new Client structure
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[google_search_tool]
+            )
+        )
 
-        # Extract web search queries from grounding metadata
+        # Extract search queries from grounding metadata
         search_queries = []
-        if hasattr(response.candidates[0], 'grounding_metadata'):
+        if response.candidates and response.candidates[0].grounding_metadata:
             metadata = response.candidates[0].grounding_metadata
-            # webSearchQueries contains the actual queries Gemini executed
-            if hasattr(metadata, 'web_search_queries'):
+            if hasattr(metadata, 'web_search_queries') and metadata.web_search_queries:
                 search_queries = metadata.web_search_queries
 
         raw_variations = response.text.strip().split('\n')
-        # Clean up numbering (e.g., "1. ")
         clean_variations = [line.split('. ', 1)[-1] for line in raw_variations if line]
 
-        # Combine the variation with the search queries used
         results = []
         for var in clean_variations:
             results.append({
@@ -46,4 +50,4 @@ def get_gemini_variations(api_key: str, keyword: str, persona: str = None) -> li
 
         return results[:5]
     except Exception as e:
-        return [{"variation": f"Gemini API Error: {e}", "web_search_queries": "N/A"}]
+        return [{"variation": f"Gemini SDK Error: {e}", "web_search_queries": "N/A"}]
