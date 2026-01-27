@@ -11,7 +11,7 @@ with st.sidebar:
     st.header("⚙️ Configuration")
     alsoasked_key = st.text_input("AlsoAsked API Key", type="password")
     gemini_key = st.text_input("Gemini API Key", type="password")
-    map_conversation = st.checkbox("Map out likely conversation")
+    map_conversation = st.checkbox("Map out likely conversation (will significantly increase time to results)")
     keywords_input = st.text_area("Enter keywords, one per line:")
 
     if 'persona_count' not in st.session_state:
@@ -24,14 +24,14 @@ with st.sidebar:
     for i in range(st.session_state.persona_count):
         st.session_state.personas[i] = st.text_area(f"Persona {i+1}", value=st.session_state.personas[i], key=f"p_{i}")
 
-    start_button = st.button("📊 Start Full Analysis")
+    start_button = st.button("Start Full Analysis")
 
 if start_button:
     # Ensure this block is indented 1 level (4 spaces)
     keywords = [k.strip() for k in keywords_input.split('\n') if k.strip()]
     active_personas = [p.strip() for p in st.session_state.personas[:st.session_state.persona_count] if p.strip()] or ["(No Persona Applied)"]
 
-    with st.spinner("Analyzing..."):
+    with st.spinner("Analysing. The more keywords and personas you've added, the longer this will take. Don't click off or interrupt it otherwise it'll break."):
         grounding_model = GroundingModel()
         st.session_state.results = {"map_conversation": map_conversation, "combined": [], "conversation_map": []}
 
